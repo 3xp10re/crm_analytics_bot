@@ -98,6 +98,70 @@ def get_current_month_metrics() -> dict:
     }
         
 
+def get_top_managers() -> list[dict]:
+    start_date, end_date = get_current_month_bounds()
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                manager,
+
+                COUNT(*) AS orders_count,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status_group = 'complete'
+                            THEN revenue
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS revenue,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status_group = 'complete'
+                            THEN revenue - cost
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS margin,
+
+                COALESCE(
+                    AVG(
+                        CASE
+                            WHEN status_group = 'complete'
+                            THEN revenue
+                        END
+                    ),
+                    0
+                ) AS average_check,
+
+                COALESCE(
+                    100.0 * SUM(
+                        CASE
+                            WHEN status_group = 'complete'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) / COUNT(*),
+                    0
+                ) AS success_rate
+
+            FROM orders
+            WHERE created_at >= ?
+            AND created_at < ?
+
+            GROUP BY manager
+            ORDER BY revenue DESC, margin DESC
+            LIMIT 5
+
+            """, (start_date, end_date),).fetchall()
+    return [dict(row) for row in rows]
+
 def get_current_month_bounds() -> tuple[str, str]:
     now = datetime.now()
     start_date = datetime(

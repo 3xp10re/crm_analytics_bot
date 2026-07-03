@@ -3,7 +3,7 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 import random
 
-from metrics import get_current_month_metrics
+from metrics import get_current_month_metrics, get_top_managers
 
 router = Router()
 
@@ -44,3 +44,34 @@ async def metrics_handler(message: Message) -> None:
     )
 
     await message.answer(text)
+
+
+@router.message(Command("top_managers"))
+async def top_managers_handler(message: Message) -> None:
+    managers = get_top_managers()
+
+    if not managers:
+        await message.answer(
+            "За текущий месяц данные по менеджерам отсутствуют."
+        )
+        return
+    
+    lines = [
+        "🏆 Топ-5 менеджеров за текущий месяц",
+        "",
+    ]
+
+    for position, manager in enumerate(managers, start=1):
+        lines.extend(
+             [
+                f"{position}. {manager['manager']}",
+                f"Заказов: {manager['orders_count']}",
+                f"Выручка: {manager['revenue']:,.2f}",
+                f"Маржа: {manager['margin']:,.2f}",
+                f"Средний чек: {manager['average_check']:,.2f}",
+                f"Успешных: {manager['success_rate']:.2f}%",
+                "",
+            ]
+        )
+
+    await message.answer("\n".join(lines))
