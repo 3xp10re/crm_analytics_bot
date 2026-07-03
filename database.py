@@ -3,13 +3,14 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "crm.db" 
 
-def get_connection():
+def get_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
 
     return connection
 
-def init_db():
+
+def init_db() -> None:
     with get_connection() as connection:
         connection.execute(
             """
@@ -19,6 +20,7 @@ def init_db():
             order_id TEXT NOT NULL UNIQUE,
 
             created_at TEXT NOT NULL,
+            client_id TEXT NOT NULL,
             manager TEXT NOT NULL,
 
             status_group TEXT NOT NULL
