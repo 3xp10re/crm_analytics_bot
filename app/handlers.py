@@ -1,9 +1,11 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 from aiogram.filters import CommandStart, Command
 import random
+import asyncio
 
 from metrics import get_current_month_metrics, get_top_managers, get_status_report
+from charts import create_revenue_chart
 
 router = Router()
 
@@ -99,3 +101,33 @@ async def status_report_handler(message: Message) -> None:
         )
 
     await message.answer("\n".join(lines))
+
+
+@router.message(Command("chart_revenue"))
+async def chart_revenue_handler(message: Message,) -> None:
+    await message.answer(
+        "Строю график выручки..."
+    )
+
+    chart_path = await asyncio.to_thread(
+        create_revenue_chart
+    )
+
+    if chart_path is None:
+        await message.answer(
+            "За последние 30 дней данных по заказам нет."
+        )
+        return
+
+    photo = FSInputFile(chart_path)
+
+    try:
+        await message.answer_photo(
+            photo=photo,
+            caption=(
+                "📈 Выручка по дням "
+                "за последние 30 дней"
+            ),
+        )
+    finally:
+        chart_path.unlink(missing_ok=True)
