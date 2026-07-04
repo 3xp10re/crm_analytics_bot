@@ -3,7 +3,7 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 import random
 
-from metrics import get_current_month_metrics, get_top_managers
+from metrics import get_current_month_metrics, get_top_managers, get_status_report
 
 router = Router()
 
@@ -72,6 +72,30 @@ async def top_managers_handler(message: Message) -> None:
                 f"Успешных: {manager['success_rate']:.2f}%",
                 "",
             ]
+        )
+
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("status_report"))
+async def status_report_handler(message: Message) -> None:
+    statuses = get_status_report()
+
+    if not statuses:
+        await message.answer(
+            "За текущий месяц данные по статусу заказов отсутствуют."
+        )
+        return
+    
+    lines = [
+        "📋 Распределение заказов за текущий месяц",
+        "",
+    ]
+
+    for status in statuses:
+        lines.append(
+            f"Статус: {status['status_group']}\n"
+            f"Количество заказов: {status['orders_count']}\n"
         )
 
     await message.answer("\n".join(lines))

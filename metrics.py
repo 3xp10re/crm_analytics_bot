@@ -162,6 +162,26 @@ def get_top_managers() -> list[dict]:
             """, (start_date, end_date),).fetchall()
     return [dict(row) for row in rows]
 
+
+def get_status_report() -> list[dict]:
+    start_date, end_date = get_current_month_bounds()
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT status_group, 
+
+            COUNT(*) as orders_count
+
+            FROM orders
+
+            WHERE created_at >= ?
+                AND created_at < ?
+
+            GROUP BY status_group
+            """, (start_date, end_date,)).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_current_month_bounds() -> tuple[str, str]:
     now = datetime.now()
     start_date = datetime(
@@ -189,19 +209,4 @@ def get_current_month_bounds() -> tuple[str, str]:
         end_date.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
-
-
-if __name__ == "__main__":
-    metrics = get_current_month_metrics()
-
-    print("Метрики за текущий месяц")
-    print("------------------------")
-    print(f"Количество заказов: {metrics['orders_count']}")
-    print(f"Выручка: {metrics['revenue']:.2f}")
-    print(f"Маржа: {metrics['margin']:.2f}")
-    print(f"Средний чек: {metrics['average_check']:.2f}")
-    print(f"Успешных заказов: {metrics['successful_orders']}")
-    print(f"Отменённых заказов: {metrics['cancelled_orders']}")
-    print(f"Доля отмен: {metrics['cancellation_rate']:.2f}%")
-    print(f"Новых клиентов: {metrics['new_clients']}")
         
