@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "crm.db" 
+DB_PATH = Path(__file__).parent.parent /"data" / "crm.db" 
 
 def get_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)

@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from database import get_connection, init_db
+from app.database import get_connection, init_db
 
 ALLOWED_STATUSES = {
     "new",

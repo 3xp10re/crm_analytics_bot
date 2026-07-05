@@ -6,7 +6,7 @@ import matplotlib
 import matplotlib.dates as mdates  
 import matplotlib.pyplot as plt
 
-from database import get_connection
+from app.database import get_connection
 
 
 matplotlib.use("Agg")

@@ -4,8 +4,8 @@ from aiogram.filters import CommandStart, Command
 import random
 import asyncio
 
-from metrics import get_current_month_metrics, get_top_managers, get_status_report
-from charts import create_revenue_chart
+from app.metrics import get_current_month_metrics, get_top_managers, get_status_report
+from app.charts import create_revenue_chart
 
 router = Router()
 

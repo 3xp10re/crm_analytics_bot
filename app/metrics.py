@@ -1,5 +1,5 @@
 from datetime import datetime
-from database import get_connection
+from app.database import get_connection
 
 
 def get_current_month_metrics() -> dict:
