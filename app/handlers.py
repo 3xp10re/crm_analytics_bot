@@ -6,6 +6,7 @@ import asyncio
 
 from app.metrics import get_current_month_metrics, get_top_managers, get_status_report
 from app.charts import create_revenue_chart
+from app.question_answering import answer_question_with_llm
 
 router = Router()
 
@@ -131,3 +132,15 @@ async def chart_revenue_handler(message: Message,) -> None:
         )
     finally:
         chart_path.unlink(missing_ok=True)
+
+    
+@router.message(F.text & ~F.text.startswith("/"))
+async def natural_language_handler(message: Message,) -> None:
+    await message.answer(
+        "Обрабатываю вопрос..."
+    )
+
+    answer = await answer_question_with_llm(
+        message.text
+    )
+    await message.answer(answer)
