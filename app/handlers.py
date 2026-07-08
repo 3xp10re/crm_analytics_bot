@@ -7,6 +7,7 @@ import asyncio
 from app.metrics import get_current_month_metrics, get_top_managers, get_status_report
 from app.charts import create_revenue_chart
 from app.question_answering import answer_question_with_llm
+from app.recommendations import get_recommendations
 
 router = Router()
 
@@ -133,7 +134,41 @@ async def chart_revenue_handler(message: Message,) -> None:
     finally:
         chart_path.unlink(missing_ok=True)
 
-    
+
+@router.message(Command("recommendations"))
+async def recommendations_handler(
+    message: Message,
+) -> None:
+    await message.answer(
+        "Анализирую CRM-данные..."
+    )
+
+    recommendations = await get_recommendations()
+
+    if not recommendations:
+        await message.answer(
+            "В текущей базе недостаточно данных "
+            "для формирования рекомендаций."
+        )
+        return
+
+    lines = [
+        "💡 Рекомендации по CRM-данным",
+    ]
+
+    for number, recommendation in enumerate(
+        recommendations,
+        start=1,
+    ):
+        lines.append(
+            f"{number}. {recommendation}"
+        )
+
+    await message.answer(
+        "\n\n".join(lines)
+    )
+
+
 @router.message(F.text & ~F.text.startswith("/"))
 async def natural_language_handler(message: Message,) -> None:
     await message.answer(
