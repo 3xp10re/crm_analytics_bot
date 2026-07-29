@@ -1,53 +1,27 @@
-import sqlite3
-from pathlib import Path
+import os
+from contextlib import contextmanager
+from typing import Generator
 
-DB_PATH = Path(__file__).parent.parent /"data" / "crm.db" 
+import psycopg
+from psycopg import Connection
+from psycopg.rows import dict_row
+from dotenv import load_dotenv
 
-def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
+load_dotenv()
 
-    return connection
+@contextmanager
+def get_connection() -> Generator[Connection,None,None,]:
+    connection = psycopg.connect(
+        host=os.getenv("POSTGRES_HOST"),
+        port=os.getenv("POSTGRES_PORT"),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        connect_timeout=5,
+        row_factory=dict_row,
+    )
 
-
-def init_db() -> None:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            order_id TEXT NOT NULL UNIQUE,
-
-            created_at TEXT NOT NULL,
-            client_id TEXT NOT NULL,
-            manager TEXT NOT NULL,
-
-            status_group TEXT NOT NULL
-            CHECK (
-            status_group IN (
-            'new',
-            'in_progress',
-            'complete',
-            'cancel'
-                )
-            ),
-            
-
-            revenue REAL NOT NULL
-                CHECK (revenue >= 0),
-
-            cost REAL NOT NULL
-                CHECK (cost >= 0),
-
-            source TEXT,
-            city TEXT
-            )
-            """
-        )
-        
-        connection.commit()
-
-if __name__ == "__main__":
-    init_db()
-    print(f"База данных создана в: {DB_PATH}")
+    try:
+        yield connection
+    finally:
+        connection.close()
