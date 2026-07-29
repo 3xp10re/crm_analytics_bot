@@ -6,8 +6,6 @@ import asyncio
 
 from app.metrics import get_current_month_metrics, get_top_managers, get_status_report
 from app.charts import create_revenue_chart
-from app.question_answering import answer_question_with_llm
-from app.recommendations import get_recommendations
 
 router = Router()
 

@@ -19,7 +19,6 @@ def get_database_schema() -> str:
             )
 
             columns = cursor.fetchall()
-            print("Количество колонок:", len(columns))
 
         tables: dict[str, list[str]] = {}
 
