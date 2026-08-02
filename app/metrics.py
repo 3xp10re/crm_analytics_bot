@@ -5,181 +5,148 @@ from app.database import get_connection
 def get_current_month_metrics() -> dict:
     start_date, end_date = get_current_month_bounds()
 
+    query = """
+            SELECT 
+                COUNT(*) AS leads_count,
+
+                COALESCE(SUM(price), 0) AS total_price,
+
+                COALESCE(AVG(price), 0) AS average_price,
+
+                COUNT(DISTINCT responsible_user_id) AS managers_count,
+
+                COUNT(*) FILTER (WHERE responsible_user_id IS NULL) AS leads_without_manager,
+
+                COUNT(*) FILTER (WHERE source IS NULLOR BTRIM(source) = '') AS leads_without_source,
+
+                COUNT(*) FILTER (WHERE product_category IS NULL OR BTRIM(product_category) = '') AS leads_without_category
+
+                FROM amocrm_leads
+
+                WHERE created_at >= %s
+                AND created_at < %s
+            """
+
     with get_connection() as connection:
-        row = connection.execute(
-            """
-            SELECT
-                COUNT(*) AS orders_count,
+        with connection.cursor() as cursor:
+            cursor.execute(query, (start_date, end_date),)
 
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS revenue,
+            row = cursor.fetchone()
 
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue - cost
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS margin,
-
-                COALESCE(
-                    AVG(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue
-                        END
-                    ),
-                    0
-                ) AS average_check,
-
-                SUM(
-                    CASE
-                        WHEN status_group = 'complete'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS successful_orders,
-
-                SUM(
-                    CASE
-                        WHEN status_group = 'cancel'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS cancelled_orders
-
-                FROM orders
-
-                WHERE created_at >= ?
-                AND created_at < ?
-            """, (start_date, end_date,),).fetchone()
-        
-        new_clients_row = connection.execute(
-            """
-            SELECT COUNT(*) AS new_clients
-            FROM (
-                SELECT client_id
-                FROM orders
-                GROUP BY client_id
-
-                HAVING MIN(created_at) >= ?
-                AND MIN(created_at) < ?
-                )
-            """, (start_date, end_date,),).fetchone()
-        
-    orders_count = row["orders_count"]
-    cancelled_orders = row["cancelled_orders"]
-
-    if orders_count > 0:
-        cancellation_rate = (cancelled_orders / orders_count * 100)
-    else:
-        cancellation_rate = 0
-
-    return {
-        "orders_count": orders_count,
-        "revenue": row["revenue"],
-        "margin": row["margin"],
-        "average_check": row["average_check"],
-        "successful_orders": row["successful_orders"],
-        "cancelled_orders": cancelled_orders,
-        "cancellation_rate": cancellation_rate,
-        "new_clients": new_clients_row["new_clients"],
-    }
+        return dict(row)  
         
 
 def get_top_managers() -> list[dict]:
     start_date, end_date = get_current_month_bounds()
-    with get_connection() as connection:
-        rows = connection.execute(
-            """
+
+    query = """
             SELECT
-                manager,
+            COALESCE(
+                NULLIF(BTRIM(l.responsible_manager), ''),
+                u.name,
+                l.responsible_user_id::text,
+                'Не назначен'
+            ) AS manager,
 
-                COUNT(*) AS orders_count,
+            COUNT(*) AS leads_count, 
 
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS revenue,
+            COALESCE(SUM(l.price), 0) AS total_price
 
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue - cost
-                            ELSE 0
-                        END
-                    ),
-                    0
-                ) AS margin,
+            COALESCE(AVG(l.price), 0) AS average_price
 
-                COALESCE(
-                    AVG(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN revenue
-                        END
-                    ),
-                    0
-                ) AS average_check,
+            FROM amocrm_leads AS l
 
-                COALESCE(
-                    100.0 * SUM(
-                        CASE
-                            WHEN status_group = 'complete'
-                            THEN 1
-                            ELSE 0
-                        END
-                    ) / COUNT(*),
-                    0
-                ) AS success_rate
+            LEFT JOIN amocrm_users AS u
+            ON u.id = l.responsible_user_id
 
-            FROM orders
-            WHERE created_at >= ?
-            AND created_at < ?
+        WHERE l.created_at >= %s
+          AND l.created_at < %s
 
-            GROUP BY manager
-            ORDER BY revenue DESC, margin DESC
-            LIMIT 5
+        GROUP BY
+            l.responsible_manager,
+            l.responsible_user_id,
+            u.id,
+            u.name
 
-            """, (start_date, end_date),).fetchall()
-    return [dict(row) for row in rows]
+        ORDER BY
+            leads_count DESC,
+            total_price DESC
+
+        LIMIT 5
+            """
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                (start_date, end_date),
+            )
+
+            rows = cursor.fetchall()
+
+    return [
+        dict(row)
+        for row in rows
+    ]
 
 
 def get_status_report() -> list[dict]:
     start_date, end_date = get_current_month_bounds()
+
+    query = """
+        SELECT
+            COALESCE(
+                p.name,
+                'Неизвестная воронка'
+            ) AS pipeline_name,
+
+            COALESCE(
+                s.name,
+                'Неизвестный статус'
+            ) AS status_name,
+
+            COUNT(*) AS leads_count,
+
+            COALESCE(
+                SUM(l.price),
+                0
+            ) AS total_price
+
+        FROM amocrm_leads AS l
+
+        LEFT JOIN amocrm_statuses AS s
+            ON s.id = l.status_id
+
+        LEFT JOIN amocrm_pipelines AS p
+            ON p.id = l.pipeline_id
+
+        WHERE l.created_at >= %s
+          AND l.created_at < %s
+
+        GROUP BY
+            p.id,
+            p.name,
+            s.id,
+            s.name
+
+        ORDER BY
+            pipeline_name,
+            leads_count DESC
+    """
+
     with get_connection() as connection:
-        rows = connection.execute(
-            """
-            SELECT status_group, 
+        with connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                (start_date, end_date),
+            )
 
-            COUNT(*) as orders_count
+            rows = cursor.fetchall()
 
-            FROM orders
-
-            WHERE created_at >= ?
-                AND created_at < ?
-
-            GROUP BY status_group
-            """, (start_date, end_date,)).fetchall()
-    return [dict(row) for row in rows]
+    return [
+        dict(row)
+        for row in rows
+    ]
 
 
 def get_current_month_bounds() -> tuple[str, str]:
