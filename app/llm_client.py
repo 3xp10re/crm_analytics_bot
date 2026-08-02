@@ -131,3 +131,108 @@ pechi.amocrm_users
         )
 
     return sql
+
+
+async def generate_answer(question: str, sql_result: list[dict]) -> str:
+    result_json = json.dumps(
+        sql_result,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
+
+    system_prompt = """
+Ты CRM-аналитик.
+
+Тебе передаются вопрос пользователя и результат SQL-запроса.
+
+Правила:
+1. Отвечай на русском языке.
+2. Используй только переданные данные.
+3. Не придумывай числа, факты, причины и выводы.
+4. Не упоминай SQL, JSON, базу данных или внутреннюю работу программы.
+5. Не используй фразы «по данному запросу» и «согласно результату».
+6. Если пользователь просит рейтинг, оформляй ответ нумерованным списком.
+7. Для каждого элемента рейтинга указывай название и показатель.
+8. Не добавляй лишний итог после списка.
+9. Если результат пустой, скажи: «По вашему запросу данные не найдены».
+10. Пиши грамотно, коротко и естественно.
+""".strip()
+
+    user_prompt = f"""
+ВОПРОС ПОЛЬЗОВАТЕЛЯ:
+
+{question}
+
+РЕЗУЛЬТАТ SQL-ЗАПРОСА:
+
+{result_json}
+
+Сформулируй готовый ответ пользователю.
+""".strip()
+
+    request_data = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ],
+        "stream": False,
+        "options": {
+            "temperature": 0,
+        },
+    }
+
+    url = f"{OLLAMA_URL.rstrip('/')}/api/chat"
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=120.0,
+        ) as client:
+            response = await client.post(
+                url,
+                json=request_data,
+            )
+
+        response.raise_for_status()
+
+    except httpx.ConnectError as error:
+        raise RuntimeError(
+            "Не удалось подключиться к Ollama."
+        ) from error
+
+    except httpx.TimeoutException as error:
+        raise RuntimeError(
+            "Ollama не успела сформировать ответ."
+        ) from error
+
+    except httpx.HTTPStatusError as error:
+        raise RuntimeError(
+            "Ollama вернула HTTP-ошибку "
+            f"{error.response.status_code}: "
+            f"{error.response.text}"
+        ) from error
+
+    data = response.json()
+
+    try:
+        answer = data["message"]["content"]
+    except (KeyError, TypeError) as error:
+        raise RuntimeError(
+            f"Неожиданный ответ Ollama: {data}"
+        ) from error
+
+    answer = answer.strip()
+
+    if not answer:
+        raise RuntimeError(
+            "Модель вернула пустой ответ."
+        )
+
+    return answer
