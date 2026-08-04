@@ -24,35 +24,40 @@ def get_revenue_by_day(days: int = 30) -> list[dict]:
     end_datetime = datetime.combine(end_day, time.min)
 
     with get_connection() as connection:
-        rows = connection.execute(
+        with connection.cursor() as cursor:
+            cursor.execute(
             """
-            SELECT 
-                DATE(created_at) as order_date,
-                COUNT(*) AS orders_count,
-            
-            COALESCE(
-                SUM(
-                    CASE WHEN status_group = 'complete'
-                        THEN revenue
-                        ELSE 0
-                    END
-                ), 0
-            ) AS revenue
+            SELECT
+                DATE(created_at) AS order_date,
 
-            FROM orders
-            WHERE created_at >= ?
-              AND created_at < ?
+                COUNT(*) AS leads_count,
+
+                COALESCE(
+                    SUM(price),
+                    0
+                ) AS total_price
+
+            FROM pechi.amocrm_leads
+
+            WHERE created_at >= %s
+              AND created_at < %s
 
             GROUP BY DATE(created_at)
-            ORDER BY order_date
 
-            """, (start_datetime.strftime("%Y-%m-%d %H:%M:%S"), 
-                  end_datetime.strftime("%Y-%m-%d %H:%M:%S"),)).fetchall()
+            ORDER BY order_date
+            """,
+            (
+                start_datetime,
+                end_datetime,
+            ),
+        )
+
+            rows = cursor.fetchall()
     
     db_data = {
         row["order_date"] :{
-                            "revenue" : float(row["revenue"]),
-                            "orders_count" : row["orders_count"]
+                            "revenue" : float(row["total_price"]),
+                            "orders_count" : row["leads_count"]
                             }
         for row in rows
     }

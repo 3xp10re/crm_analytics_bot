@@ -35,14 +35,16 @@ async def metrics_handler(message: Message) -> None:
     metrics = get_current_month_metrics()
     text = (
         "📊 Метрики за текущий месяц\n\n"
-        f"Количество заказов: {metrics['orders_count']}\n"
-        f"Выручка: {metrics['revenue']:,.2f}\n"
-        f"Маржа: {metrics['margin']:,.2f}\n"
-        f"Средний чек: {metrics['average_check']:,.2f}\n"
-        f"Успешных заказов: {metrics['successful_orders']}\n"
-        f"Отменённых заказов: {metrics['cancelled_orders']}\n"
-        f"Доля отмен: {metrics['cancellation_rate']:.2f}%\n"
-        f"Новых клиентов: {metrics['new_clients']}"
+        f"Количество сделок: {metrics['leads_count']}\n"
+        f"Общая сумма сделок: {metrics['total_price']:,.2f}\n"
+        f"Средняя сумма сделки: {metrics['average_price']:,.2f}\n"
+        f"Активных менеджеров: {metrics['managers_count']}\n"
+        f"Сделок без менеджера: "
+        f"{metrics['leads_without_manager']}\n"
+        f"Сделок без источника: "
+        f"{metrics['leads_without_source']}\n"
+        f"Сделок без категории: "
+        f"{metrics['leads_without_category']}"
     )
 
     await message.answer(text)
@@ -65,13 +67,17 @@ async def top_managers_handler(message: Message) -> None:
 
     for position, manager in enumerate(managers, start=1):
         lines.extend(
-             [
+            [
                 f"{position}. {manager['manager']}",
-                f"Заказов: {manager['orders_count']}",
-                f"Выручка: {manager['revenue']:,.2f}",
-                f"Маржа: {manager['margin']:,.2f}",
-                f"Средний чек: {manager['average_check']:,.2f}",
-                f"Успешных: {manager['success_rate']:.2f}%",
+                f"Сделок: {manager['leads_count']}",
+                (
+                    "Общая сумма сделок: "
+                    f"{manager['total_price']:,.2f}"
+                ),
+                (
+                    "Средняя сумма сделки: "
+                    f"{manager['average_price']:,.2f}"
+                ),
                 "",
             ]
         )
@@ -95,9 +101,17 @@ async def status_report_handler(message: Message) -> None:
     ]
 
     for status in statuses:
-        lines.append(
-            f"Статус: {status['status_group']}\n"
-            f"Количество заказов: {status['orders_count']}\n"
+        lines.extend(
+            [
+                f"Воронка: {status['pipeline_name']}",
+                f"Статус: {status['status_name']}",
+                f"Количество сделок: {status['leads_count']}",
+                (
+                    "Общая сумма сделок: "
+                    f"{status['total_price']:,.2f}"
+                ),
+                "",
+            ]
         )
 
     await message.answer("\n".join(lines))
@@ -132,7 +146,7 @@ async def chart_revenue_handler(message: Message,) -> None:
     finally:
         chart_path.unlink(missing_ok=True)
 
-
+"""
 @router.message(Command("recommendations"))
 async def recommendations_handler(
     message: Message,
@@ -165,7 +179,7 @@ async def recommendations_handler(
     await message.answer(
         "\n\n".join(lines)
     )
-
+"""
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def natural_language_handler(message: Message,) -> None:

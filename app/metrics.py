@@ -17,11 +17,11 @@ def get_current_month_metrics() -> dict:
 
                 COUNT(*) FILTER (WHERE responsible_user_id IS NULL) AS leads_without_manager,
 
-                COUNT(*) FILTER (WHERE source IS NULLOR BTRIM(source) = '') AS leads_without_source,
+                COUNT(*) FILTER (WHERE source IS NULL OR BTRIM(source) = '') AS leads_without_source,
 
                 COUNT(*) FILTER (WHERE product_category IS NULL OR BTRIM(product_category) = '') AS leads_without_category
 
-                FROM amocrm_leads
+                FROM pechi.amocrm_leads
 
                 WHERE created_at >= %s
                 AND created_at < %s
@@ -50,13 +50,13 @@ def get_top_managers() -> list[dict]:
 
             COUNT(*) AS leads_count, 
 
-            COALESCE(SUM(l.price), 0) AS total_price
+            COALESCE(SUM(l.price), 0) AS total_price,
 
             COALESCE(AVG(l.price), 0) AS average_price
 
-            FROM amocrm_leads AS l
+            FROM pechi.amocrm_leads AS l
 
-            LEFT JOIN amocrm_users AS u
+            LEFT JOIN pechi.amocrm_users AS u
             ON u.id = l.responsible_user_id
 
         WHERE l.created_at >= %s
@@ -112,12 +112,12 @@ def get_status_report() -> list[dict]:
                 0
             ) AS total_price
 
-        FROM amocrm_leads AS l
+        FROM pechi.amocrm_leads AS l
 
-        LEFT JOIN amocrm_statuses AS s
+        LEFT JOIN pechi.amocrm_statuses AS s
             ON s.id = l.status_id
 
-        LEFT JOIN amocrm_pipelines AS p
+        LEFT JOIN pechi.amocrm_pipelines AS p
             ON p.id = l.pipeline_id
 
         WHERE l.created_at >= %s
