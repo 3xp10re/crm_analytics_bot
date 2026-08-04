@@ -20,56 +20,59 @@ def get_revenue_by_day(days: int = 30) -> list[dict]:
     start_day = today - timedelta(days=days - 1)
     end_day = today + timedelta(days=1)
 
-    start_datetime = datetime.combine(start_day, time.min)
-    end_datetime = datetime.combine(end_day, time.min)
+    start_datetime = datetime.combine(
+        start_day,
+        time.min,
+    )
+    end_datetime = datetime.combine(
+        end_day,
+        time.min,
+    )
+
+    query = """
+        SELECT
+            created_at::date AS order_date,
+            COUNT(*) AS leads_count,
+            COALESCE(SUM(price), 0) AS total_price
+
+        FROM pechi.amocrm_leads
+
+        WHERE created_at >= %s
+          AND created_at < %s
+
+        GROUP BY created_at::date
+        ORDER BY order_date
+    """
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-            """
-            SELECT
-                DATE(created_at) AS order_date,
-
-                COUNT(*) AS leads_count,
-
-                COALESCE(
-                    SUM(price),
-                    0
-                ) AS total_price
-
-            FROM pechi.amocrm_leads
-
-            WHERE created_at >= %s
-              AND created_at < %s
-
-            GROUP BY DATE(created_at)
-
-            ORDER BY order_date
-            """,
-            (
-                start_datetime,
-                end_datetime,
-            ),
-        )
-
+                query,
+                (
+                    start_datetime,
+                    end_datetime,
+                ),
+            )
             rows = cursor.fetchall()
-    
+
     db_data = {
-        row["order_date"] :{
-                            "revenue" : float(row["total_price"]),
-                            "orders_count" : row["leads_count"]
-                            }
+        row["order_date"]: {
+            "revenue": float(row["total_price"]),
+            "orders_count": row["leads_count"],
+        }
         for row in rows
     }
 
     result = []
 
     for day_number in range(days):
-        current_day = start_day + timedelta(days=day_number)
-        current_day_string = current_day.isoformat()
+        current_day = (
+            start_day
+            + timedelta(days=day_number)
+        )
 
         day_data = db_data.get(
-            current_day_string,
+            current_day,
             {
                 "revenue": 0.0,
                 "orders_count": 0,
@@ -80,7 +83,9 @@ def get_revenue_by_day(days: int = 30) -> list[dict]:
             {
                 "date": current_day,
                 "revenue": day_data["revenue"],
-                "orders_count": day_data["orders_count"],
+                "orders_count": day_data[
+                    "orders_count"
+                ],
             }
         )
 
