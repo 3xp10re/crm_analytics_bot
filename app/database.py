@@ -19,6 +19,7 @@ def get_connection() -> Generator[Connection,None,None,]:
         password=os.getenv("POSTGRES_PASSWORD"),
         connect_timeout=5,
         row_factory=dict_row,
+        options="-c search_path=pechi,public",
     )
 
     try:
