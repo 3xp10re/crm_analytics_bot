@@ -7,3 +7,4 @@ charts/
 crm.db
 *.db
 *.sqlite3
+logs/
