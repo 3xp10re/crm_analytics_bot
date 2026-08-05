@@ -6,6 +6,7 @@ import asyncio
 from app.metrics import get_current_month_metrics, get_top_managers, get_status_report
 from app.charts import create_revenue_chart
 from app.sql_service import process_query
+from app.recommendations import generate_recommendations
 
 router = Router()
 
@@ -146,40 +147,24 @@ async def chart_revenue_handler(message: Message,) -> None:
     finally:
         chart_path.unlink(missing_ok=True)
 
-"""
+
 @router.message(Command("recommendations"))
-async def recommendations_handler(
-    message: Message,
-) -> None:
-    await message.answer(
-        "Анализирую CRM-данные..."
-    )
-
-    recommendations = await get_recommendations()
-
-    if not recommendations:
+async def recommendations_handler(message: Message,) -> None:
+    try:
         await message.answer(
-            "В текущей базе недостаточно данных "
-            "для формирования рекомендаций."
-        )
-        return
-
-    lines = [
-        "💡 Рекомендации по CRM-данным",
-    ]
-
-    for number, recommendation in enumerate(
-        recommendations,
-        start=1,
-    ):
-        lines.append(
-            f"{number}. {recommendation}"
+            "Анализирую показатели CRM..."
         )
 
-    await message.answer(
-        "\n\n".join(lines)
-    )
-"""
+        recommendations = await generate_recommendations()
+
+        await message.answer(recommendations)
+
+    except Exception:
+        await message.answer(
+            "Не удалось сформировать рекомендации. "
+            "Попробуйте позже."
+        )
+
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def natural_language_handler(message: Message,) -> None:
